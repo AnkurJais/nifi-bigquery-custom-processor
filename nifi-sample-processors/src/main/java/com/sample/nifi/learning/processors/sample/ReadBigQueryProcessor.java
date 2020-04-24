@@ -109,6 +109,7 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 						List<FieldValue> fieldValues = tableData.next();
 						json.put("name", fieldValues.get(0).getValue().toString());
 						json.put("age", fieldValues.get(1).getValue().toString());
+						out.write(json.toString().getBytes());
 					}
 				});
 				session.getProvenanceReporter().create(flowFile);
