@@ -57,6 +57,9 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
   public static final Relationship SUCCESS = new Relationship.Builder()
       .name("success")
       .build();
+  
+  public static final Relationship REL_FAILURE = new Relationship.Builder().name("failure")
+      .description("FlowFiles are routed to failure relationship").build();
 
   public static final PropertyDescriptor MY_PROPERTY = new PropertyDescriptor
       .Builder().name("MY_PROPERTY")
@@ -64,10 +67,6 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
       .description("Example Property")
       .required(true)
       .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-      .build();
-
-  public static final Relationship MY_RELATIONSHIP = new Relationship.Builder()
-      .name("success")
       .build();
   
   public static final List<PropertyDescriptor> properties = Collections.unmodifiableList(
@@ -79,7 +78,8 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
   @Override
   protected void init(final ProcessorInitializationContext context) {
       final Set<Relationship> relationships = new HashSet<Relationship>();
-      relationships.add(MY_RELATIONSHIP);
+      relationships.add(SUCCESS);
+      relationships.add(REL_FAILURE);
       this.relationships = Collections.unmodifiableSet(relationships);
   }
   
@@ -109,17 +109,24 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 		Iterator<List<FieldValue>> tableData= listTableData(dataset, tableName);
 		while (tableData.hasNext()) {
 			FlowFile flowFile = session.create();
-			flowFile = session.write(flowFile, new OutputStreamCallback() {
-				@Override
-				public void process(OutputStream out) throws IOException {
-					// TODO Auto-generated method stub
-		      ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		      ObjectOutputStream oos = new ObjectOutputStream(bos);
-		      oos.writeObject(tableData.next());
-		      oos.flush();
-					out.write(bos.toByteArray());
-				}				
-			});
+			try {
+				flowFile = session.write(flowFile, new OutputStreamCallback() {
+					@Override
+					public void process(OutputStream out) throws IOException {
+						// TODO Auto-generated method stub
+			      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			      ObjectOutputStream oos = new ObjectOutputStream(bos);
+			      oos.writeObject(tableData.next());
+			      oos.flush();
+						out.write(bos.toByteArray());
+					}				
+				});
+			} catch (Exception e) {
+				// TODO: handle exception
+				getLogger().error("IOException while reading BigQuery item: " + e.getMessage());
+				flowFile = session.putAttribute(flowFile, "error_message", "IOException while reading BigQuery item: " + e.getMessage());
+        session.transfer(flowFile, REL_FAILURE);
+			}
 	    session.getProvenanceReporter().create(flowFile);
 	    session.transfer(flowFile, SUCCESS);
 		}		
