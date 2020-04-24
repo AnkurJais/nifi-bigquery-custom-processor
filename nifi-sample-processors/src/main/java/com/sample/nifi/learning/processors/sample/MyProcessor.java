@@ -68,303 +68,283 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 
-@Tags({"example"})
+@Tags({ "example" })
 @CapabilityDescription("Provide a description")
 @SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
+@ReadsAttributes({ @ReadsAttribute(attribute = "", description = "") })
+@WritesAttributes({ @WritesAttribute(attribute = "", description = "") })
 
 public class MyProcessor extends AbstractBigQueryProcessor {
 
 	private ComponentLog logger;
-	
-	  static final PropertyDescriptor TABLE = new PropertyDescriptor.Builder()
-	      .name("Bigquery Table")
-	      .description("The table id where store the data. The table must be exist on bigquery")
-	      .required(true)
-	      .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-	      .build();
-	  
-	  static final PropertyDescriptor OUT_TABLE = new PropertyDescriptor.Builder()
-	      .name("Output Bigquery Table")
-	      .description("The table id where store the data. The table must be exist on bigquery")
-	      .required(true)
-	      .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-	      .build();
-	  
-    static final PropertyDescriptor DATASET = new PropertyDescriptor.Builder()
-        .name("Bigquery Dataset")
-        .description("The dataset id where find the table. The dataset must be exist on bigquery")
-        .required(true)
-        .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-        .build();
-    
-    static final PropertyDescriptor BATCH_SIZE = new PropertyDescriptor.Builder()
-			.name("Bigquery Insert Batch Size")
-			.description("The max number of flow files to insert in a table in one request. " +
-					"Default is 500 as recommended by bigquery quota documentation.")
-			.required(true)
-			.defaultValue("500")
-			.addValidator(StandardValidators.INTEGER_VALIDATOR)
-			.build();
 
-    private List<String> formatBigqueryErrors(List<BigQueryError> errors) {
-    	List<String> errorsString = new ArrayList<>();
-    	for (BigQueryError error : errors) { errorsString.add(error.toString()); }
-    	return errorsString;
-    }
+	static final PropertyDescriptor TABLE = new PropertyDescriptor.Builder().name("Bigquery Table")
+	    .description("The table id where store the data. The table must be exist on bigquery").required(true)
+	    .addValidator(StandardValidators.NON_EMPTY_VALIDATOR).build();
 
-    private String created_at() {
-    	TimeZone tz = TimeZone.getTimeZone("UTC");
-    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
-    	df.setTimeZone(tz);
-    	return df.format(new Date());
-    }
+	static final PropertyDescriptor OUT_TABLE = new PropertyDescriptor.Builder().name("Output Bigquery Table")
+	    .description("The table id where store the data. The table must be exist on bigquery").required(true)
+	    .addValidator(StandardValidators.NON_EMPTY_VALIDATOR).build();
 
-    private JSONObject parseJson(InputStream jsonStream) throws JsonIOException, JsonSyntaxException, IOException {
-    	return new JSONObject(JsonParserUtils.fromStream(jsonStream).toString());
-    }
-    
-    public static final List<PropertyDescriptor> properties = Collections.unmodifiableList(
-        Arrays.asList(SERVICE_ACCOUNT_CREDENTIALS_JSON, READ_TIMEOUT, CONNECTION_TIMEOUT, PROJECT, DATASET, TABLE, OUT_TABLE, BATCH_SIZE));
-  
-    public static final PropertyDescriptor MY_PROPERTY = new PropertyDescriptor
-            .Builder().name("MY_PROPERTY")
-            .displayName("My property")
-            .description("Example Property")
-            .required(true)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .build();
+	static final PropertyDescriptor DATASET = new PropertyDescriptor.Builder().name("Bigquery Dataset")
+	    .description("The dataset id where find the table. The dataset must be exist on bigquery").required(true)
+	    .addValidator(StandardValidators.NON_EMPTY_VALIDATOR).build();
 
-    public static final Relationship MY_RELATIONSHIP = new Relationship.Builder()
-            .name("MY_RELATIONSHIP")
-            .description("Example relationship")
-            .build();
+	static final PropertyDescriptor BATCH_SIZE = new PropertyDescriptor.Builder().name("Bigquery Insert Batch Size")
+	    .description("The max number of flow files to insert in a table in one request. "
+	        + "Default is 500 as recommended by bigquery quota documentation.")
+	    .required(true).defaultValue("500").addValidator(StandardValidators.INTEGER_VALIDATOR).build();
 
-    private List<PropertyDescriptor> descriptors;
+	private List<String> formatBigqueryErrors(List<BigQueryError> errors) {
+		List<String> errorsString = new ArrayList<>();
+		for (BigQueryError error : errors) {
+			errorsString.add(error.toString());
+		}
+		return errorsString;
+	}
 
-    private Set<Relationship> relationships;
+	private String created_at() {
+		TimeZone tz = TimeZone.getTimeZone("UTC");
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+		df.setTimeZone(tz);
+		return df.format(new Date());
+	}
 
-    @Override
-    protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
-        descriptors.add(MY_PROPERTY);
-        this.descriptors = Collections.unmodifiableList(descriptors);
+	private JSONObject parseJson(InputStream jsonStream) throws JsonIOException, JsonSyntaxException, IOException {
+		return new JSONObject(JsonParserUtils.fromStream(jsonStream).toString());
+	}
 
-        final Set<Relationship> relationships = new HashSet<Relationship>();
-        relationships.add(MY_RELATIONSHIP);
-        this.relationships = Collections.unmodifiableSet(relationships);
-    }
+	public static final List<PropertyDescriptor> properties = Collections
+	    .unmodifiableList(Arrays.asList(SERVICE_ACCOUNT_CREDENTIALS_JSON, READ_TIMEOUT, CONNECTION_TIMEOUT, PROJECT,
+	        DATASET, TABLE, OUT_TABLE, BATCH_SIZE));
 
-    @Override
-    public Set<Relationship> getRelationships() {
-        return this.relationships;
-    }
+	public static final PropertyDescriptor MY_PROPERTY = new PropertyDescriptor.Builder().name("MY_PROPERTY")
+	    .displayName("My property").description("Example Property").required(true)
+	    .addValidator(StandardValidators.NON_EMPTY_VALIDATOR).build();
 
-    @Override
-    public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
-        return properties;
-    }
+	public static final Relationship MY_RELATIONSHIP = new Relationship.Builder().name("MY_RELATIONSHIP")
+	    .description("Example relationship").build();
 
-    @OnScheduled
-    public void onScheduled(final ProcessContext context) {
+	private List<PropertyDescriptor> descriptors;
 
-    }
-    
-  	private Integer batchSize(ProcessContext context){
-  		PropertyValue batchSizeProperty = context.getProperty(BATCH_SIZE);
-      	return batchSizeProperty.asInteger();
-  	}
+	private Set<Relationship> relationships;
 
-  	private void readFromTable(final ProcessContext context, final ProcessSession session) {
-  		TableReference tableSpec =
-  		    new TableReference()
-  		        .setProjectId("clouddataflow-readonly")
-  		        .setDatasetId("samples")
-  		        .setTableId("weather_stations");
-  	}
-  	
-  	 private Object convertField(Field fieldSchema, FieldValue field) {
-  	    if (field.isNull()) {
-  	      return null;
-  	    }
-  	    switch (field.getAttribute()) {
-  	      case PRIMITIVE:
-  	        switch (fieldSchema.getType().getValue()) {
-  	          case BOOLEAN:
-  	            return field.getBooleanValue();
-  	          case FLOAT:
-  	            return field.getDoubleValue();
-  	          case INTEGER:
-  	            return field.getLongValue();
-  	          case STRING:
-  	            return field.getStringValue();
-  	          case TIMESTAMP:
-  	            return field.getTimestampValue();
-  	          default:
-  	            throw new RuntimeException("Cannot convert primitive field type "
-  	                                       + fieldSchema.getType());
-  	        }
-  	      case REPEATED:
-  	        List<Object> result = new ArrayList<>();
-  	        for (FieldValue arrayField : field.getRepeatedValue()) {
-  	          result.add(convertField(fieldSchema, arrayField));
-  	        }
-  	        return result;
-  	      case RECORD:
-  	        List<Field> recordSchemas = fieldSchema.getFields();
-  	        List<FieldValue> recordFields = field.getRecordValue();
-  	        return convertRow(recordSchemas, recordFields);
-  	      default:
-  	        throw new RuntimeException("Unknown field attribute: " + field.getAttribute());
-  	    }
-  	  }
-  	 
-    private List<Object> convertRow(List<Field> rowSchema, List<FieldValue> row) {
-      List<Object> result = new ArrayList<>();
-      assert (rowSchema.size() == row.size());
+	@Override
+	protected void init(final ProcessorInitializationContext context) {
+		final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+		descriptors.add(MY_PROPERTY);
+		this.descriptors = Collections.unmodifiableList(descriptors);
 
-      for (int i = 0; i < rowSchema.size(); i++) {
-        result.add(convertField(rowSchema.get(i), row.get(i)));
-      }
+		final Set<Relationship> relationships = new HashSet<Relationship>();
+		relationships.add(MY_RELATIONSHIP);
+		this.relationships = Collections.unmodifiableSet(relationships);
+	}
 
-      return result;
-    }
-    
-  	private List<List<Object>> readAllRows(String dataset, String tableName) {
-  	  Table table = bigQuery.getTable(dataset, tableName);
-  	  Schema schema = table.getDefinition().getSchema();
-  	  Page<List<FieldValue>> page = table.list();
+	@Override
+	public Set<Relationship> getRelationships() {
+		return this.relationships;
+	}
 
-  	  List<List<Object>> rows = new ArrayList<>();
-  	  while (page != null) {
-  	    for (List<FieldValue> row : page.getValues()) {
-  	      rows.add(convertRow(schema.getFields(), row));
-  	    }
-  	    page = page.getNextPage();
-  	  }
-  	  return rows;
-  	}
-  	
-  	public static Map<String, Object> toMap(JSONObject object) throws JSONException {
-      Map<String, Object> map = new HashMap<String, Object>();
+	@Override
+	public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
+		return properties;
+	}
 
-      Iterator<String> keysItr = object.keys();
-      while(keysItr.hasNext()) {
-          String key = keysItr.next();
-          Object value = object.get(key);
+	@OnScheduled
+	public void onScheduled(final ProcessContext context) {
 
-          if(value instanceof JSONArray) {
-              value = toList((JSONArray) value);
-          }
+	}
 
-          else if(value instanceof JSONObject) {
-              value = toMap((JSONObject) value);
-          }
-          map.put(key, value);
-      }
-      return map;
-    }
-  	
-    public static List<Object> toList(JSONArray array) {
-      List<Object> list = new ArrayList<Object>();
-      for(int i = 0; i < array.length(); i++) {
-          Object value = array.get(i);
-          if(value instanceof JSONArray) {
-              value = toList((JSONArray) value);
-          }
+	private Integer batchSize(ProcessContext context) {
+		PropertyValue batchSizeProperty = context.getProperty(BATCH_SIZE);
+		return batchSizeProperty.asInteger();
+	}
 
-          else if(value instanceof JSONObject) {
-              value = toMap((JSONObject) value);
-          }
-          list.add(value);
-      }
-      return list;
-    }
-  	
-    @Override
-    public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
-/*        FlowFile flowFile = session.get();
-        if ( flowFile == null ) {
-            return;
-        }*/
-        
-      logger = getLogger();
-      
-      FlowFile input = null;
-      if (context.hasIncomingConnection()) {
-          input = session.get();
-          if (input == null && context.hasNonLoopConnection()) {
-              return;
-          }
-      }
-    	
-    	
-    	
-        Integer batchSize = batchSize(context);
-        List<FlowFile> flowFiles = session.get(batchSize);
-        List<InsertAllRequest.RowToInsert> rowsToInsert = new ArrayList<>();
-        List<FlowFile> flowFilesToInsert = new ArrayList<>();
-        List<JSONObject> listOfContent = new ArrayList<>();
+	private void readFromTable(final ProcessContext context, final ProcessSession session) {
+		TableReference tableSpec = new TableReference().setProjectId("clouddataflow-readonly").setDatasetId("samples")
+		    .setTableId("weather_stations");
+	}
 
-        final String table = context.getProperty(OUT_TABLE).getValue();
-        final String inputTable = context.getProperty(TABLE).getValue();
-        final String dataset = context.getProperty(DATASET).getValue();
-        
-        List<List<Object>> allRecords = readAllRows(dataset, inputTable);
-        
-      	for (FlowFile flowFile : flowFiles) {
-      		try {
-      				JSONObject jsonDocument = parseJson(session.read(flowFile));
-          		InsertAllRequest.RowToInsert rowToInsert = InsertAllRequest.RowToInsert.of(toMap(jsonDocument));
-          		rowsToInsert.add(rowToInsert);
-          		flowFilesToInsert.add(flowFile);
-          		listOfContent.add(jsonDocument);
-      		} catch (IOException e) {
-      				getLogger().error("IOException while reading JSON item: " + e.getMessage());
-      				flowFile = session.putAttribute(flowFile, "error_message", "IOException while reading JSON item: " + e.getMessage());
-              session.transfer(flowFile, REL_FAILURE);
-      		} catch (JsonIOException e) {
-      				getLogger().error("JsonIOException while reading JSON item: " + e.getMessage());
-      				flowFile = session.putAttribute(flowFile, "error_message", "JsonIOException while reading JSON item: " + e.getMessage());
-              session.transfer(flowFile, REL_FAILURE);
-  			} catch (JsonSyntaxException e) {
-  						getLogger().error("JsonSyntaxException while reading JSON item: " + e.getMessage());
-  						flowFile = session.putAttribute(flowFile, "error_message", "JsonSyntaxException while reading JSON item: " + e.getMessage());
-                  session.transfer(flowFile, REL_FAILURE);
-  			}
-  		}
+	private Object convertField(Field fieldSchema, FieldValue field) {
+		if (field.isNull()) {
+			return null;
+		}
+		switch (field.getAttribute()) {
+		case PRIMITIVE:
+			switch (fieldSchema.getType().getValue()) {
+			case BOOLEAN:
+				return field.getBooleanValue();
+			case FLOAT:
+				return field.getDoubleValue();
+			case INTEGER:
+				return field.getLongValue();
+			case STRING:
+				return field.getStringValue();
+			case TIMESTAMP:
+				return field.getTimestampValue();
+			default:
+				throw new RuntimeException("Cannot convert primitive field type " + fieldSchema.getType());
+			}
+		case REPEATED:
+			List<Object> result = new ArrayList<>();
+			for (FieldValue arrayField : field.getRepeatedValue()) {
+				result.add(convertField(fieldSchema, arrayField));
+			}
+			return result;
+		case RECORD:
+			List<Field> recordSchemas = fieldSchema.getFields();
+			List<FieldValue> recordFields = field.getRecordValue();
+			return convertRow(recordSchemas, recordFields);
+		default:
+			throw new RuntimeException("Unknown field attribute: " + field.getAttribute());
+		}
+	}
 
-      	if ( !rowsToInsert.isEmpty() ) {
-      		InsertAllRequest  insertAllRequest  = InsertAllRequest.of(dataset, table, rowsToInsert);
-          	InsertAllResponse insertAllResponse = getBigQuery().insertAll(insertAllRequest);
+	private List<Object> convertRow(List<Field> rowSchema, List<FieldValue> row) {
+		List<Object> result = new ArrayList<>();
+		assert (rowSchema.size() == row.size());
 
-          	for ( int index = 0; index < flowFilesToInsert.size(); index++ ) {
-          		List<BigQueryError> errors = insertAllResponse.getErrorsFor(index);
-          		FlowFile flowFile = flowFilesToInsert.get(index);
+		for (int i = 0; i < rowSchema.size(); i++) {
+			result.add(convertField(rowSchema.get(i), row.get(i)));
+		}
 
-          		if ( errors.isEmpty() ) {
-          			session.transfer(flowFile, REL_SUCCESS);
-          		} else {
-          			String content = listOfContent.get(index).toString();
+		return result;
+	}
 
-          			flowFile = session.write(flowFile, new OutputStreamCallback() {
-  						@Override
-  						public void process(OutputStream out) throws IOException {
-  							JSONObject json = new JSONObject();
+	private List<List<Object>> readAllRows(String dataset, String tableName) {
+		Table table = bigQuery.getTable(dataset, tableName);
+		Schema schema = table.getDefinition().getSchema();
+		Page<List<FieldValue>> page = table.list();
 
-  							json.put("errors", formatBigqueryErrors(errors));
-  							json.put("content", content);
-  							json.put("created_at", created_at());
+		List<List<Object>> rows = new ArrayList<>();
+		while (page != null) {
+			for (List<FieldValue> row : page.getValues()) {
+				rows.add(convertRow(schema.getFields(), row));
+			}
+			page = page.getNextPage();
+		}
+		return rows;
+	}
 
-  							out.write(json.toString().getBytes());
-  						}
-  					});
-          			session.transfer(flowFile, REL_FAILURE);
-          		}
-          	}
-          	
-        // TODO implement
-    }
-    }
-}    
+	public static Map<String, Object> toMap(JSONObject object) throws JSONException {
+		Map<String, Object> map = new HashMap<String, Object>();
+
+		Iterator<String> keysItr = object.keys();
+		while (keysItr.hasNext()) {
+			String key = keysItr.next();
+			Object value = object.get(key);
+
+			if (value instanceof JSONArray) {
+				value = toList((JSONArray) value);
+			}
+
+			else if (value instanceof JSONObject) {
+				value = toMap((JSONObject) value);
+			}
+			map.put(key, value);
+		}
+		return map;
+	}
+
+	public static List<Object> toList(JSONArray array) {
+		List<Object> list = new ArrayList<Object>();
+		for (int i = 0; i < array.length(); i++) {
+			Object value = array.get(i);
+			if (value instanceof JSONArray) {
+				value = toList((JSONArray) value);
+			}
+
+			else if (value instanceof JSONObject) {
+				value = toMap((JSONObject) value);
+			}
+			list.add(value);
+		}
+		return list;
+	}
+
+	@Override
+	public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
+		/*
+		 * FlowFile flowFile = session.get(); if ( flowFile == null ) { return; }
+		 */
+
+		logger = getLogger();
+
+		FlowFile input = null;
+		if (context.hasIncomingConnection()) {
+			input = session.get();
+			if (input == null && context.hasNonLoopConnection()) {
+				return;
+			}
+		}
+
+		Integer batchSize = batchSize(context);
+		List<FlowFile> flowFiles = session.get(batchSize);
+		List<InsertAllRequest.RowToInsert> rowsToInsert = new ArrayList<>();
+		List<FlowFile> flowFilesToInsert = new ArrayList<>();
+		List<JSONObject> listOfContent = new ArrayList<>();
+
+		final String table = context.getProperty(OUT_TABLE).getValue();
+		final String inputTable = context.getProperty(TABLE).getValue();
+		final String dataset = context.getProperty(DATASET).getValue();
+
+		List<List<Object>> allRecords = readAllRows(dataset, inputTable);
+
+		for (FlowFile flowFile : flowFiles) {
+			try {
+				JSONObject jsonDocument = parseJson(session.read(flowFile));
+				InsertAllRequest.RowToInsert rowToInsert = InsertAllRequest.RowToInsert.of(toMap(jsonDocument));
+				rowsToInsert.add(rowToInsert);
+				flowFilesToInsert.add(flowFile);
+				listOfContent.add(jsonDocument);
+			} catch (IOException e) {
+				getLogger().error("IOException while reading JSON item: " + e.getMessage());
+				flowFile = session.putAttribute(flowFile, "error_message",
+				    "IOException while reading JSON item: " + e.getMessage());
+				session.transfer(flowFile, REL_FAILURE);
+			} catch (JsonIOException e) {
+				getLogger().error("JsonIOException while reading JSON item: " + e.getMessage());
+				flowFile = session.putAttribute(flowFile, "error_message",
+				    "JsonIOException while reading JSON item: " + e.getMessage());
+				session.transfer(flowFile, REL_FAILURE);
+			} catch (JsonSyntaxException e) {
+				getLogger().error("JsonSyntaxException while reading JSON item: " + e.getMessage());
+				flowFile = session.putAttribute(flowFile, "error_message",
+				    "JsonSyntaxException while reading JSON item: " + e.getMessage());
+				session.transfer(flowFile, REL_FAILURE);
+			}
+		}
+
+		if (!rowsToInsert.isEmpty()) {
+			InsertAllRequest insertAllRequest = InsertAllRequest.of(dataset, table, rowsToInsert);
+			InsertAllResponse insertAllResponse = getBigQuery().insertAll(insertAllRequest);
+
+			for (int index = 0; index < flowFilesToInsert.size(); index++) {
+				List<BigQueryError> errors = insertAllResponse.getErrorsFor(index);
+				FlowFile flowFile = flowFilesToInsert.get(index);
+
+				if (errors.isEmpty()) {
+					session.transfer(flowFile, REL_SUCCESS);
+				} else {
+					String content = listOfContent.get(index).toString();
+
+					flowFile = session.write(flowFile, new OutputStreamCallback() {
+						@Override
+						public void process(OutputStream out) throws IOException {
+							JSONObject json = new JSONObject();
+
+							json.put("errors", formatBigqueryErrors(errors));
+							json.put("content", content);
+							json.put("created_at", created_at());
+
+							out.write(json.toString().getBytes());
+						}
+					});
+					session.transfer(flowFile, REL_FAILURE);
+				}
+			}
+
+			// TODO implement
+		}
+	}
+}
