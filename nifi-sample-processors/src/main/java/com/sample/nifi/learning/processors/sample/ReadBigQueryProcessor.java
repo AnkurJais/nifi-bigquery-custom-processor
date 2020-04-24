@@ -76,9 +76,11 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 	}
 
 	public Iterator<List<FieldValue>> listTableData(String datasetName, String tableName) {
+		getLogger().info("Reading Table Started.");
 		TableId tableIdObject = TableId.of(datasetName, tableName);
 		Page<List<FieldValue>> tableData = bigQuery.listTableData(tableIdObject, TableDataListOption.pageSize(100));
 		Iterator<List<FieldValue>> rowIterator = tableData.iterateAll();
+		getLogger().info("Reading Table Completed."+ rowIterator.next().toString());
 		return rowIterator;
 	}
 
@@ -87,6 +89,7 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 		// TODO Auto-generated method stub
 		String tableName = context.getProperty(TABLE).getValue();
 		String dataset = context.getProperty(DATASET).getValue();
+		
 		Iterator<List<FieldValue>> tableData = listTableData(dataset, tableName);
 		while (tableData.hasNext()) {
 			FlowFile flowFile = session.create();
