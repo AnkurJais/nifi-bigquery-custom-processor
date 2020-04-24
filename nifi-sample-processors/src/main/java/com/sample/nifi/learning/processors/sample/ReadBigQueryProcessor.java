@@ -105,6 +105,8 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 						out.write(bos.toByteArray());
 					}
 				});
+				session.getProvenanceReporter().create(flowFile);
+				session.transfer(flowFile, SUCCESS);
 			} catch (Exception e) {
 				// TODO: handle exception
 				getLogger().error("IOException while reading BigQuery item: " + e.getMessage());
@@ -112,8 +114,6 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 				    "IOException while reading BigQuery item: " + e.getMessage());
 				session.transfer(flowFile, REL_FAILURE);
 			}
-			session.getProvenanceReporter().create(flowFile);
-			session.transfer(flowFile, SUCCESS);
 		}
 	}
 
