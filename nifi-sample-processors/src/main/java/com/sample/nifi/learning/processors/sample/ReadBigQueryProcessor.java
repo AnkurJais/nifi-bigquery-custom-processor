@@ -1,8 +1,6 @@
 package com.sample.nifi.learning.processors.sample;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
@@ -92,8 +90,8 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 		String dataset = context.getProperty(DATASET).getValue();
 		
 		Iterator<List<FieldValue>> tableData = listTableData(dataset, tableName);
+		FlowFile flowFile = session.create();
 		while (tableData.hasNext()) {
-			FlowFile flowFile = session.create();
 			try {
 				flowFile = session.write(flowFile, new OutputStreamCallback() {
 					@Override
@@ -107,8 +105,8 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 						 */
 						
 						List<FieldValue> fieldValues = tableData.next();
-						json.put("name", fieldValues.get(0).getValue().toString());
-						json.put("age", fieldValues.get(1).getValue().toString());
+						json.put("name", fieldValues.get(1).getValue().toString());
+						json.put("age", fieldValues.get(0).getValue().toString());
 						out.write(json.toString().getBytes());
 					}
 				});
