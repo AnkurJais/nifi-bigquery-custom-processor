@@ -13,3 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 com.sample.nifi.learning.processors.sample.MyProcessor
+com.sample.nifi.learning.processors.sample.ReadBigQueryProcessor

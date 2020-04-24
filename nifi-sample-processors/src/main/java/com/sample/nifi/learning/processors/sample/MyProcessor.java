@@ -19,6 +19,7 @@ package com.sample.nifi.learning.processors.sample;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
@@ -29,12 +30,13 @@ import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.OutputStreamCallback;
-import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.google.api.services.bigquery.model.TableReference;
@@ -58,8 +60,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -71,6 +76,8 @@ import java.util.TimeZone;
 
 public class MyProcessor extends AbstractBigQueryProcessor {
 
+	private ComponentLog logger;
+	
 	  static final PropertyDescriptor TABLE = new PropertyDescriptor.Builder()
 	      .name("Bigquery Table")
 	      .description("The table id where store the data. The table must be exist on bigquery")
@@ -239,6 +246,42 @@ public class MyProcessor extends AbstractBigQueryProcessor {
   	  return rows;
   	}
   	
+  	public static Map<String, Object> toMap(JSONObject object) throws JSONException {
+      Map<String, Object> map = new HashMap<String, Object>();
+
+      Iterator<String> keysItr = object.keys();
+      while(keysItr.hasNext()) {
+          String key = keysItr.next();
+          Object value = object.get(key);
+
+          if(value instanceof JSONArray) {
+              value = toList((JSONArray) value);
+          }
+
+          else if(value instanceof JSONObject) {
+              value = toMap((JSONObject) value);
+          }
+          map.put(key, value);
+      }
+      return map;
+    }
+  	
+    public static List<Object> toList(JSONArray array) {
+      List<Object> list = new ArrayList<Object>();
+      for(int i = 0; i < array.length(); i++) {
+          Object value = array.get(i);
+          if(value instanceof JSONArray) {
+              value = toList((JSONArray) value);
+          }
+
+          else if(value instanceof JSONObject) {
+              value = toMap((JSONObject) value);
+          }
+          list.add(value);
+      }
+      return list;
+    }
+  	
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 /*        FlowFile flowFile = session.get();
@@ -246,6 +289,18 @@ public class MyProcessor extends AbstractBigQueryProcessor {
             return;
         }*/
         
+      logger = getLogger();
+      
+      FlowFile input = null;
+      if (context.hasIncomingConnection()) {
+          input = session.get();
+          if (input == null && context.hasNonLoopConnection()) {
+              return;
+          }
+      }
+    	
+    	
+    	
         Integer batchSize = batchSize(context);
         List<FlowFile> flowFiles = session.get(batchSize);
         List<InsertAllRequest.RowToInsert> rowsToInsert = new ArrayList<>();
@@ -261,7 +316,7 @@ public class MyProcessor extends AbstractBigQueryProcessor {
       	for (FlowFile flowFile : flowFiles) {
       		try {
       				JSONObject jsonDocument = parseJson(session.read(flowFile));
-          		InsertAllRequest.RowToInsert rowToInsert = InsertAllRequest.RowToInsert.of(jsonDocument.toMap());
+          		InsertAllRequest.RowToInsert rowToInsert = InsertAllRequest.RowToInsert.of(toMap(jsonDocument));
           		rowsToInsert.add(rowToInsert);
           		flowFilesToInsert.add(flowFile);
           		listOfContent.add(jsonDocument);
