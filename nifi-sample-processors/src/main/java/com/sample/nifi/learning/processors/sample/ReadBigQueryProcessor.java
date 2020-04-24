@@ -21,6 +21,7 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.json.JSONObject;
 
 import com.google.cloud.Page;
 import com.google.cloud.bigquery.BigQuery.TableDataListOption;
@@ -76,11 +77,11 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 	}
 
 	public Iterator<List<FieldValue>> listTableData(String datasetName, String tableName) {
-		getLogger().info("Reading Table Started.");
+		getLogger().warn("Reading Table Started.");
 		TableId tableIdObject = TableId.of(datasetName, tableName);
 		Page<List<FieldValue>> tableData = bigQuery.listTableData(tableIdObject, TableDataListOption.pageSize(100));
 		Iterator<List<FieldValue>> rowIterator = tableData.iterateAll();
-		getLogger().info("Reading Table Completed."+ rowIterator.next().toString());
+//		getLogger().warn("Reading Table Completed."+ rowIterator.next().toString());
 		return rowIterator;
 	}
 
@@ -97,12 +98,18 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 				flowFile = session.write(flowFile, new OutputStreamCallback() {
 					@Override
 					public void process(OutputStream out) throws IOException {
+						JSONObject json = new JSONObject();
 						// TODO Auto-generated method stub
-						ByteArrayOutputStream bos = new ByteArrayOutputStream();
-						ObjectOutputStream oos = new ObjectOutputStream(bos);
-						oos.writeObject(tableData.next());
-						oos.flush();
-						out.write(bos.toByteArray());
+						/*
+						 * ByteArrayOutputStream bos = new ByteArrayOutputStream(); ObjectOutputStream
+						 * oos = new ObjectOutputStream(bos); oos.writeObject(tableData.next());
+						 * oos.flush(); out.write(bos.toByteArray());
+						 */
+						
+						List<FieldValue> fieldValues = tableData.next();
+						json.put("name", fieldValues.get(0).getValue().toString());
+						json.put("age", fieldValues.get(1).getValue().toString());
+						out.write(json.toString().getBytes());
 					}
 				});
 				session.getProvenanceReporter().create(flowFile);
