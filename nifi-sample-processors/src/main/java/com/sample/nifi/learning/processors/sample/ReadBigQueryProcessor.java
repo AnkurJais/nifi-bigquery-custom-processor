@@ -1,8 +1,6 @@
 package com.sample.nifi.learning.processors.sample;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
@@ -92,24 +90,25 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 		String dataset = context.getProperty(DATASET).getValue();
 		
 		Iterator<List<FieldValue>> tableData = listTableData(dataset, tableName);
-		while (tableData.hasNext()) {
-			FlowFile flowFile = session.create();
+		FlowFile flowFile = session.create();
 			try {
 				flowFile = session.write(flowFile, new OutputStreamCallback() {
 					@Override
 					public void process(OutputStream out) throws IOException {
-						JSONObject json = new JSONObject();
-						// TODO Auto-generated method stub
-						/*
-						 * ByteArrayOutputStream bos = new ByteArrayOutputStream(); ObjectOutputStream
-						 * oos = new ObjectOutputStream(bos); oos.writeObject(tableData.next());
-						 * oos.flush(); out.write(bos.toByteArray());
-						 */
-						
-						List<FieldValue> fieldValues = tableData.next();
-						json.put("name", fieldValues.get(0).getValue().toString());
-						json.put("age", fieldValues.get(1).getValue().toString());
-						out.write(json.toString().getBytes());
+						while (tableData.hasNext()) {
+							JSONObject json = new JSONObject();
+							// TODO Auto-generated method stub
+							/*
+							 * ByteArrayOutputStream bos = new ByteArrayOutputStream(); ObjectOutputStream
+							 * oos = new ObjectOutputStream(bos); oos.writeObject(tableData.next());
+							 * oos.flush(); out.write(bos.toByteArray());
+							 */
+							
+							List<FieldValue> fieldValues = tableData.next();
+							json.put("name", fieldValues.get(0).getValue().toString());
+							json.put("age", fieldValues.get(1).getValue().toString());
+							out.write(json.toString().getBytes());
+						}	
 					}
 				});
 				session.getProvenanceReporter().create(flowFile);
@@ -123,5 +122,3 @@ public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
 			}
 		}
 	}
-
-}
