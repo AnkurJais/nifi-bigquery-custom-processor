@@ -14,3 +14,4 @@
 # limitations under the License.
 com.sample.nifi.learning.processors.sample.MyProcessor
 com.sample.nifi.learning.processors.sample.ReadBigQueryProcessor
+com.sample.nifi.learning.processors.sample.CreateTableFromBigQuery
