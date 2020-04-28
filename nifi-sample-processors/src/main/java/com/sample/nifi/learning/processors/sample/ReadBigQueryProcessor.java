@@ -27,7 +27,6 @@ import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.TableId;
 
 public class ReadBigQueryProcessor extends AbstractBigQueryProcessor {
-	private ComponentLog logger;
 
 	static final PropertyDescriptor TABLE = new PropertyDescriptor.Builder().name("Bigquery Table")
 	    .description("The table id where store the data. The table must be exist on bigquery").required(true)

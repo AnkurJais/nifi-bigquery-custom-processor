@@ -24,11 +24,16 @@ import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.QueryRequest;
 import com.google.cloud.bigquery.QueryResponse;
 import com.google.cloud.bigquery.QueryResult;
+import com.sample.nifi.learning.constants.Constants;
 
 public class CreateTableFromBigQuery extends AbstractBigQueryProcessor {
 
 	static final PropertyDescriptor QUERY = new PropertyDescriptor.Builder().name("Query")
 	    .description("Query you want to fire on table").required(true)
+	    .addValidator(StandardValidators.NON_EMPTY_VALIDATOR).build();
+	
+	static final PropertyDescriptor OUTPUT_TYPE = new PropertyDescriptor.Builder().name("Output Type")
+	    .description("Output Record type. Currently supporting json and csv").required(true)
 	    .addValidator(StandardValidators.NON_EMPTY_VALIDATOR).build();
 	
 	static final PropertyDescriptor BATCH_SIZE = new PropertyDescriptor.Builder().name("Bigquery Insert Batch Size")
@@ -46,7 +51,7 @@ public class CreateTableFromBigQuery extends AbstractBigQueryProcessor {
 	    .addValidator(StandardValidators.NON_EMPTY_VALIDATOR).build();
 
 	public static final List<PropertyDescriptor> properties = Collections.unmodifiableList(Arrays
-	    .asList(SERVICE_ACCOUNT_CREDENTIALS_JSON, READ_TIMEOUT, CONNECTION_TIMEOUT, PROJECT, QUERY, BATCH_SIZE));
+	    .asList(SERVICE_ACCOUNT_CREDENTIALS_JSON, READ_TIMEOUT, CONNECTION_TIMEOUT, PROJECT, QUERY, OUTPUT_TYPE, BATCH_SIZE));
 
 	private Set<Relationship> relationships;
 
@@ -84,6 +89,7 @@ public class CreateTableFromBigQuery extends AbstractBigQueryProcessor {
 	public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
 		// TODO Auto-generated method stub
 		String query = context.getProperty(QUERY).getValue();
+		String outputType = context.getProperty(OUTPUT_TYPE).getValue();
 		
 		Iterator<List<FieldValue>> tableData = queryRecord(query);
 		FlowFile flowFile = session.create();
@@ -99,12 +105,22 @@ public class CreateTableFromBigQuery extends AbstractBigQueryProcessor {
 							 * oos = new ObjectOutputStream(bos); oos.writeObject(tableData.next());
 							 * oos.flush(); out.write(bos.toByteArray());
 							 */
-							
 							List<FieldValue> fieldValues = tableData.next();
-							json.put("name", fieldValues.get(0).getValue().toString());
-							json.put("age", fieldValues.get(1).getValue().toString());
-							out.write(json.toString().getBytes());
-							if(tableData.hasNext())
+							if (outputType.equalsIgnoreCase(Constants.OutputType.JSON)) {
+								json.put("name", fieldValues.get(0).getValue().toString());
+								json.put("age", fieldValues.get(1).getValue().toString());
+								out.write(json.toString().getBytes());
+							} else if (outputType.equalsIgnoreCase(Constants.OutputType.CSV)) {
+								String record = "";
+								for (FieldValue fieldValue : fieldValues) {
+									if (record != "")
+										record = record + "," + fieldValue.getStringValue();
+									else 
+										record = fieldValue.getStringValue();
+								}
+								out.write(record.getBytes());
+							}							
+							if (tableData.hasNext())
 								out.write("\n".getBytes());
 						}	
 					}
